@@ -1,0 +1,49 @@
+# Local environment values (keep shareable templates)
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+!.env.*.example
+!.env.*.sample
+!.env.*.template
+
+# Local IDE settings and history
+.idea/
+.vs/
+.history/
+*.suo
+*.user
+*.sln.docstates
+*.swp
+*.swo
+*~
+
+# Operating system metadata
+.DS_Store
+._*
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Runtime logs and temporary files
+*.log
+/logs/
+/tmp/
+/temp/
+
+# Generated build, packaging, and test output
+/build/
+/dist/
+/out/
+/release/
+/coverage/
+.cache/
+
+# Dependencies and caches if a Node.js desktop frontend is added
+node_modules/
+.npm/
+.pnpm-store/
+.vite/
+
+# Keep planning documents, UI assets, manifests, and lockfiles tracked.
