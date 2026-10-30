@@ -32,7 +32,7 @@ export function createTelemetryClient({fetcher=fetch,pollMs=3000,timeoutMs=10000
       try{
         const response=await fetcher('/api/telemetry/latest',{signal:requestController.signal,cache:'no-store',headers:{Accept:'application/json'}});
         if(response.status===404&&current===generation)update({unsupported:true});
-        if(!response.ok)throw new Error(response.status===404?'SOC 조회 API 미지원 · 서버 업데이트 필요':'SOC 조회 실패 (HTTP '+response.status+')');
+        if(!response.ok)throw new Error(response.status===404?'실측 조회 미지원 · 시뮬레이션 표시':'SOC 조회 실패 (HTTP '+response.status+')');
         const readings=parseLatestTelemetry(await response.json());
         if(current===generation&&!requestController.signal.aborted)update({readings,error:'',updatedAt:new Date().toISOString(),unsupported:false});
       }catch(error){if(current===generation)update({error:requestController.signal.aborted?'SOC 조회 시간 초과':error instanceof Error?error.message:'SOC 연결 오류'});}
@@ -41,6 +41,6 @@ export function createTelemetryClient({fetcher=fetch,pollMs=3000,timeoutMs=10000
   }
   return {getState:()=>state,subscribe(listener:(value:TelemetryState)=>void){listeners.add(listener);return()=>{listeners.delete(listener);};},refresh,
     reset(){cancel();update({readings:[],error:'',updatedAt:null,unsupported:false});void refresh();},
-    connect(){void refresh();if(!timer)timer=setInterval(()=>void refresh(),pollMs);return()=>{if(timer)clearInterval(timer);timer=undefined;cancel();};}
+    connect(){void refresh();if(!timer)timer=setInterval(()=>{if(!state.unsupported)void refresh();},pollMs);return()=>{if(timer)clearInterval(timer);timer=undefined;cancel();};}
   };
 }

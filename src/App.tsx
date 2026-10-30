@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Activity, ChevronRight, CircleHelp, Database, FlaskConical, LayoutDashboard, Network, PanelLeftClose, PanelLeftOpen, Play, Radio, RefreshCw, SearchCheck, Settings2, ShieldCheck, Square, Trash2, TriangleAlert, X } from 'lucide-react';
+import { Activity, Bell, ChevronRight, CircleHelp, Database, FlaskConical, LayoutDashboard, Network, PanelLeftClose, PanelLeftOpen, Play, Radio, RefreshCw, SearchCheck, Settings2, ShieldCheck, Square, Trash2, TriangleAlert, X } from 'lucide-react';
 import type { Filters, RuleId } from './model.ts';
 import { defaultFilters, eventStats, groupEvents, rules, selectEvents } from './model.ts';
 import { createServerClient, EVENT_LIMIT } from './api.ts';
@@ -12,6 +12,7 @@ import { detectionStatus, deviceIds, parseRoute, siteRoute, siteSnapshot } from 
 import { useTelemetry } from './useTelemetry.ts';
 import { useSocSimulation } from './useSocSimulation.ts';
 import { shouldSimulateSoc } from './socSimulation.ts';
+import { GlobalAlerts, useAlerts } from './GlobalAlerts.tsx';
 
 const source = createServerClient();
 const emptyFilters: Filters = {...defaultFilters, date: ''};
@@ -30,7 +31,9 @@ export default function App() {
   const {snapshot, stats, loading:busy, error} = server;
   const telemetry = useTelemetry(server.resetVersion);
   const simulationMode=shouldSimulateSoc(telemetry);
-  const simulatedSoc=useSocSimulation(snapshot,simulationMode,server.resetVersion);
+  const {values:simulatedSoc,history:powerHistory}=useSocSimulation(snapshot,simulationMode,server.resetVersion);
+  const alerts=useAlerts(snapshot.events,Boolean(server.lastUpdated)||snapshot.events.length>0,server.resetVersion);
+  const [alertOpen,setAlertOpen]=useState(false);
   const [location, setLocation] = useState(() => parseRoute(window.location.hash));
   const route = location.view;
   const site = location.device ?? 'ESS-01';
@@ -62,7 +65,7 @@ export default function App() {
     return () => { unsubscribe(); disconnect(); window.removeEventListener('hashchange', onHash); };
   }, []);
   useEffect(() => { document.getElementById('main')?.scrollTo({top:0, behavior:'instant'}); }, [location]);
-  useEffect(() => { document.title = 'ESS Guard · ' + (route === 'site' ? site : route === 'incident' ? '경보 상세' : navigation.find(n => n.id === route)?.label); }, [route,site]);
+  useEffect(() => { document.title = (alerts.unread.length?'('+alerts.unread.length+') 경고 · ':'')+'ESS Guard · ' + (route === 'site' ? site : route === 'incident' ? '경보 상세' : navigation.find(n => n.id === route)?.label); }, [route,site,alerts.unread.length]);
   useEffect(() => { if (resetOpen) dialog.current?.showModal(); else dialog.current?.close(); }, [resetOpen]);
   useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(''), 6000); return () => clearTimeout(timer); }, [notice]);
   useEffect(() => { if (activeCommand) commandDialog.current?.showModal(); else commandDialog.current?.close(); }, [activeCommand?.id]);
@@ -107,17 +110,18 @@ export default function App() {
       <div className="sidebar-bottom"><b>ESS Guard</b><span>통합 감시 · 서버 연결</span><small>계측값 미제공 ≠ 정상</small></div>
     </aside>
     <div className="main-shell">
-      <header className="topbar"><div><button className="icon-button sidebar-toggle" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? '메뉴 펼치기' : '메뉴 접기'}>{collapsed ? <PanelLeftOpen size={18}/> : <PanelLeftClose size={18}/>}</button><a href="#overview" className="brand"><span className="brand-icon"><ShieldCheck size={19}/></span>ESS <b>GUARD</b></a><span className="d-top-divider"/><span className="breadcrumb">통합 운영 센터</span></div><div className="topbar-right"><span className="source-label"><span className={'mini-dot '+(server.lastUpdated && !error ? 'blue' : 'amber')}/>{httpLabel}</span><button className="icon-button" aria-label="연결 안내" onClick={() => setNotice('통계·탐지 이력·재생 제어는 서버에 연결됩니다. SOC 조회 API가 없으면 최신 탐지 규칙에 따른 가속 시뮬레이션을 표시합니다. 시뮬레이션 SOC는 실측이나 공격 판정이 아니며, 서버 재생 정지와 별개로 움직입니다. 실측 API가 연결되면 실측을 우선 표시합니다.')}><CircleHelp size={18}/></button></div></header>
+      <header className="topbar"><div><button className="icon-button sidebar-toggle" onClick={() => setCollapsed(!collapsed)} aria-label={collapsed ? '메뉴 펼치기' : '메뉴 접기'}>{collapsed ? <PanelLeftOpen size={18}/> : <PanelLeftClose size={18}/>}</button><a href="#overview" className="brand"><span className="brand-icon"><ShieldCheck size={19}/></span>ESS <b>GUARD</b></a><span className="d-top-divider"/><span className="breadcrumb">통합 운영 센터</span></div><div className="topbar-right"><button className={'alert-bell '+(alerts.unread.length?'has-unread':'')} onClick={()=>setAlertOpen(true)} aria-label={'경고 알림 센터 · 미확인 '+alerts.unread.length+'건'}><Bell size={17}/>경고 <b>{alerts.unread.length}</b></button><span className="source-label"><span className={'mini-dot '+(server.lastUpdated && !error ? 'blue' : 'amber')}/>{httpLabel}</span><button className="icon-button" aria-label="연결 안내" onClick={() => setNotice('통계·탐지 이력·재생 제어는 서버에 연결됩니다. SOC 조회 API가 없으면 최신 탐지 규칙에 따른 가속 시뮬레이션을 표시합니다. 시뮬레이션 SOC는 실측이나 공격 판정이 아니며, 서버 재생 정지와 별개로 움직입니다. 실측 API가 연결되면 실측을 우선 표시합니다.')}><CircleHelp size={18}/></button></div></header>
+      <GlobalAlerts alerts={alerts} events={alerts.events} onEvent={openEvent} open={alertOpen} setOpen={setAlertOpen}/>
       <main id="main" tabIndex={-1} data-route={route} data-site-tab={siteTab}>
         <div className="page-heading"><div><span className="eyebrow">ESS Guard · 관제센터 / 계통 EMS</span><h1>{current.label}{current.planned && <span className="planned-pill">기획 미리보기</span>}</h1></div><div className="d-page-switch"><button className={route==='overview'||route==='site'?'active':''} onClick={()=>navigate('overview')}>전체 현황</button><button className={route==='detections'||route==='incident'?'active':''} onClick={()=>{setFilters(emptyFilters);navigate('detections');}}>경보 로그 <b>{count(stats?.detectionCount)}</b></button></div><div className="page-stamp"><span>{streamLabel}</span><b>{time(server.lastUpdated)} <small>KST</small></b></div></div>
-        {route==='site'&&<><div className="d-site-heading"><div><h2>{site}</h2><span className={'d-status '+detectionStatus(scopedSnapshot.events,Boolean(server.lastUpdated)).tone}>{detectionStatus(scopedSnapshot.events,Boolean(server.lastUpdated)).label}</span><small>설비별 통합 감시 · 계측값 확인 불가</small></div><label>사이트<select value={site} onChange={event=>navigate(siteRoute(event.target.value,siteTab))}>{[...new Set([...devices,site])].map(device=><option key={device}>{device}</option>)}</select></label></div><div className="d-site-tabs" aria-label="사이트 상세 항목">{([['monitor','사이트 개요'],['path','전 구간 감시'],['physical','물리 검증'],['logs','사이트 경보 로그']] as const).map(([tab,label])=><a key={tab} href={'#'+siteRoute(site,tab)} aria-current={tab===siteTab?'page':undefined}>{label}</a>)}</div></>}
+        {route==='site'&&<><div className="d-site-heading"><div><h2>{site}</h2><span className={'d-status '+detectionStatus(scopedSnapshot.events,Boolean(server.lastUpdated)).tone}>{detectionStatus(scopedSnapshot.events,Boolean(server.lastUpdated)).label}</span><small>설비별 통합 감시 · {simulationMode?'시뮬레이션 표시':'계측 시계열 미수신'}</small></div><label>사이트<select value={site} onChange={event=>navigate(siteRoute(event.target.value,siteTab))}>{[...new Set([...devices,site])].map(device=><option key={device}>{device}</option>)}</select></label></div><div className="d-site-tabs" aria-label="사이트 상세 항목">{([['monitor','사이트 개요'],['path','전 구간 감시'],['physical','물리 검증'],['logs','사이트 경보 로그']] as const).map(([tab,label])=><a key={tab} href={'#'+siteRoute(site,tab)} aria-current={tab===siteTab?'page':undefined}>{label}</a>)}</div></>}
         {error && <div className="error-banner" role="alert"><TriangleAlert size={18} /><span>{error}{server.lastUpdated ? ' 마지막 정상 조회 데이터를 표시합니다.' : ' 아직 서버 데이터를 받지 못했습니다.'}</span><button onClick={refresh}>다시 시도</button></div>}
         {!server.lastUpdated && busy && <div className="info-banner" role="status"><RefreshCw size={16} className="spin" />서버 데이터를 조회하고 있습니다.</div>}
-        {route === 'overview' && <FleetOverview snapshot={snapshot} stats={stats} ready={Boolean(server.lastUpdated)} navigate={navigate} onEvent={openEvent} telemetry={telemetry} simulatedSoc={simulationMode?simulatedSoc:undefined}/>}
-        {route === 'site' && siteTab === 'monitor' && <SiteOverview device={site} snapshot={snapshot} ready={Boolean(server.lastUpdated)} navigate={navigate} onEvent={openEvent} onRule={id=>{setRule(id);navigate('rules');}}/>}
+        {route === 'overview' && <FleetOverview snapshot={snapshot} stats={stats} ready={Boolean(server.lastUpdated)} navigate={navigate} onEvent={openEvent} telemetry={telemetry} simulatedSoc={simulationMode?simulatedSoc:undefined} powerHistory={simulationMode?powerHistory:undefined} unreadEvents={alerts.unread}/>}
+        {route === 'site' && siteTab === 'monitor' && <SiteOverview simulated={simulationMode?simulatedSoc[site]:undefined} powerHistory={simulationMode?powerHistory:undefined} device={site} snapshot={snapshot} ready={Boolean(server.lastUpdated)} navigate={navigate} onEvent={openEvent} onRule={id=>{setRule(id);navigate('rules');}}/>}
         {route === 'site' && siteTab === 'path' && <><DataPath/><Panel title="관측 지점별 비교" subtitle={site+' · 실제 계측값 미제공'}><div className="unavailable-chart"><Network size={32}/><strong>지점별 계측 데이터가 필요합니다.</strong><p>공통 설비 ID, 관측 시각, SOC·출력, 시간 정렬·품질 정보가 제공되면 구간별 차이를 비교할 수 있습니다.</p><span>관측 편차만으로 변조나 공격을 확정하지 않습니다.</span></div></Panel></>}
         {route === 'site' && siteTab === 'physical' && <PhysicalLive key={site} snapshot={scopedSnapshot} ready={Boolean(server.lastUpdated)} busy={busy} refresh={refresh} resetVersion={server.resetVersion}/>}
-        {route === 'incident' && <IncidentPage event={snapshot.events.find(event=>event.id===location.eventId)} snapshot={snapshot} navigate={navigate} onEvent={openEvent} onCommand={setCommandId} onBack={()=>navigate(returnRoute)}/>}
+        {route === 'incident' && <IncidentPage event={snapshot.events.find(event=>event.id===location.eventId)??alerts.events.find(event=>event.id===location.eventId)} snapshot={snapshot} navigate={navigate} onEvent={openEvent} onCommand={setCommandId} onBack={()=>navigate(returnRoute)}/>}
         {logRoute && <>
           {route==='detections'&&<DetectionStats stats={stats} snapshot={snapshot} ready={Boolean(server.lastUpdated)}/>}
           <FiltersBar value={route==='site'?{...filters,device:site}:filters} lockedDevice={route==='site'?site:undefined} onChange={updateFilters} eventFilters refresh={refresh} busy={busy} devices={devices}/>

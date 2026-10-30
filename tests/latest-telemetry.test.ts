@@ -19,7 +19,7 @@ test('invalid telemetry payloads cannot become gauge values',()=>{
 test('missing API stays explicitly unavailable and failure preserves last readings',async()=>{
   let mode='unsupported';
   const client=createTelemetryClient({fetcher:async()=>mode==='unsupported'?new Response('',{status:404}):mode==='error'?new Response('',{status:503}):response(mode==='empty'?[]:[sample])});
-  await client.refresh();assert.match(client.getState().error,/서버 업데이트 필요/);assert.deepEqual(client.getState().readings,[]);
+  await client.refresh();assert.match(client.getState().error,/실측 조회 미지원/);assert.deepEqual(client.getState().readings,[]);
   assert.equal(client.getState().unsupported,true);
   mode='ready';await client.refresh();assert.equal(client.getState().readings[0].soc,63.5);
   assert.equal(client.getState().unsupported,false);
@@ -38,4 +38,10 @@ test('telemetry timeout releases the request and allows retry',async()=>{
   const client=createTelemetryClient({timeoutMs:10,fetcher:async(_url,options)=>fail?new Promise<Response>((_resolve,reject)=>options?.signal?.addEventListener('abort',()=>reject(new Error('aborted')))):response([sample])});
   await client.refresh();assert.match(client.getState().error,/시간 초과/);
   fail=false;await client.refresh();assert.equal(client.getState().readings[0].soc,63.5);
+});
+test('confirmed unsupported endpoint is not repeatedly polled',async()=>{
+  let calls=0;
+  const client=createTelemetryClient({pollMs:5,fetcher:async()=>{calls++;return new Response('',{status:404});}});
+  const disconnect=client.connect();
+  try{await new Promise(resolve=>setTimeout(resolve,35));assert.equal(calls,1);}finally{disconnect();}
 });
