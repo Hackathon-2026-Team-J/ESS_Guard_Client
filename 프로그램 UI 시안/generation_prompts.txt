@@ -1,0 +1,157 @@
+ESS Guard UI concepts
+Method: built-in image_gen
+Reference: output/ess_ui_modern/04_main_operations.png
+All values are illustrative. Planned telemetry is not supplied by the current two-table MVP.
+
+SCREEN 1: 통합 감시
+Use case: ui-mockup. ONE polished WHITE native Windows PC application screenshot, landscape 1800x1125. The attached screenshot is a style/layout reference only. Keep modern desktop chrome, titlebar/menu/document tabs/slim toolbar/fixedleftsidebar/data panels/table dock/statusbar. NOT webpage, no browser URL, not marketing cards, no dated metallic UI. Crisp Korean, white surfaces #FFFFFF, lightgray #F5F6F8, darkink text, fine borders and restrainedblue selected accents. Clear simple lineicons, aligned numerical tables, minimal rounding. App title "ESS Guard", small "시연 모드" badge, native minimize/maximize/close. Menu "파일  보기  분석  도움말".
+Shared leftnav: "통합 감시", "탐지 이력", "전 구간 감시" small "기획" pill, "물리 검증" small "기획" pill, "검증 규칙", "시연 관리". Below tree "분석 대상" > "ESS-01". Footer "설비 제어 없음". Do not duplicate fake connectivity of CAN/Modbus sensors. Only SSE link status can be green for actual command-MVP mock screens. All screenshots are mockups with illustrative data.
+
+Data contract: current MVP reads database EMS commands (not physicalCANcapture), evaluates5rules, saves multiple detectionresults percommand, broadcasts results viaSSE. Command fields id, issued_at, client_id, role(OPERATOR/MONITOR/MAINTENANCE/UNKNOWN), device_id, function_code(3/4read6/16write), register_address, command_value(rawinteger), ess_state(STOPPED/RUNNING/MAINTENANCE/FAULT), labeled_anomaly(evaluationonly), processed. Detectionfields id, command_log_id, rule_idR1–R5, severityCRITICAL/HIGH/MEDIUM, message, detected_at. No assignee, reviewstatus, memo, persistentincidententity, packetbytes, SOC telemetry, actualdevicecommandresponse, policywriteAPI, replaystart/pauseAPI exist in this request. Never pretendtheseexistintheMVP. Futurefeatures remain in plannedviews and visibly tagged "기획 미리보기 · 예시 데이터". No fake physicalconnection orconfirmedattack.
+Use rule name mapping R1미등록클라이언트,R2읽기전용쓰기,R3값범위초과,R4운전상태위반,R5쓰기폭주 as a proposed UI mapping. Values/rulethresholds/severityillustrations not regulatoryfacts.
+Shared sample database snapshot: loadedcommands120, processed100,pending20; distinctprocessedcommandswithdetections9, detectionevents14. Thus processed-no-rule-detection91 but avoidlabelingthesephysicallysafe. EventseveritycountsCRITICAL3,HIGH7,MEDIUM4sum14. Selected command1042 issued2026-10-31 14:31:50, clientMON-01, roleMONITOR, deviceESS-01, FC6쓰기, register120, rawvalue150, essstateRUNNING, processedtrue. It has TWO results event8021 R2 HIGH14:32:13 "읽기 전용 역할에서 쓰기 명령 발생" and8022 R3 MEDIUM14:32:13 "설정된 레지스터 값 범위 초과". Event8023 R1 CRITICAL14:32:14 referencesDIFFERENTcommand1043 andclientEXT-09. Showcount9vs14 correctly ifused. CurrentfooterlatestSSE14:32:14.
+Evaluationlabel is hidden from operationalviews; processedfalsemeans평가대기 notnormal; processedtruewithoutdetectionmeans규칙미탐지. Severitycomesfromevent, notfixed rulemapping.
+Do not add inappropriate implementationdetails to ordinaryuserflows. Distinguish implementedMVP vsplannedusing smallcontextlabels, notlarge apologybanners. No explanatoryoutsidefooter.
+SCREEN1 integrated main, selected통합감시. Topdocumenttab"통합 감시". Filterperiod2026-10-31, targetESS-01, "전체 규칙", refreshicon, green "실시간 알림 연결". Compactdata-sourcecaption "EMS 명령 분석 · 시연 DB".
+Top compact summarystrip, notoversizecards: "처리 명령100 /120", "처리 대기20", "탐지 명령9", "탐지 이벤트14". Explicitlabel"명령1건에서 여러 이벤트 발생 가능".
+Upper middle LEFT65% "명령 처리 현황" table columns명령ID/발생시각/클라이언트/역할/기능/처리/탐지수.
+One prominent selectedrow1042 /14:31:50 /MON-01 /MONITOR /6·쓰기 /완료 /2.
+Secondrow1043 /14:31:51 /EXT-09 /UNKNOWN /6·쓰기 /완료 /1.
+Onependingrow1101 /14:32:49 /OP-01 /OPERATOR /3·읽기 /대기 /"—". Do notshowfutureissuedtime with currentclock? omit timestampforpending as "예약 시연" isnotactualtimestamp. Betterusepending1101 issued14:31:59, stillwaitsbecauseIDqueue; choose14:31:59.
+RIGHT35% "위험도별 탐지 이벤트" clean horizontal bars CRITICAL3 red, HIGH7 amber, MEDIUM4gold. Count14notriskpercentage. Below tiny "R1~R5 규칙 기반 탐지". No inventedtimechart needingunavailabletimestamps whenaggregates.
+MID slim entirepath panel title "전 구간 감시" small"기획" badge andbutton"설계 보기": flatnodes배터리→BMS→ESS EMS→계통EMS→타관제센터, edgesCAN/Modbus TCP/DNP3·IEC104/ICCP. Footnote "현재 MVP는 명령 분석 / 계측 데이터 연동 예정". Do notshow98or70physicalreadingshere, nofakegreens.
+Next right/adjacent compactplannedfunctionstrip "물리 검증" small기획badge withchips"SOC·전류", "온도", "셀·팩 전압", "명령·응답" andbutton검증화면보기. Givesvisibleplannedfeatureswithoutdummydata.
+Bottomdominanttable"최근 탐지 이벤트" columns탐지시각/이벤트ID/명령ID/규칙/위험도/내용. Three rows8023cmd1043R1CRITICAL14:32:14미등록클라이언트;8022cmd1042R3MEDIUM14:32:13값범위초과;8021cmd1042R2HIGH14:32:13읽기전용쓰기. Button"탐지 상세". Noackbutton ormanualreviewstatus.
+Footer "알림 스트림 연결 · 마지막 이벤트14:32:14" and "명령 분석 MVP · 시연 데이터".
+
+
+SCREEN 2: 탐지 이력·상세
+Use case: ui-mockup. ONE polished WHITE native Windows PC application screenshot, landscape 1800x1125. The attached screenshot is a style/layout reference only. Keep modern desktop chrome, titlebar/menu/document tabs/slim toolbar/fixedleftsidebar/data panels/table dock/statusbar. NOT webpage, no browser URL, not marketing cards, no dated metallic UI. Crisp Korean, white surfaces #FFFFFF, lightgray #F5F6F8, darkink text, fine borders and restrainedblue selected accents. Clear simple lineicons, aligned numerical tables, minimal rounding. App title "ESS Guard", small "시연 모드" badge, native minimize/maximize/close. Menu "파일  보기  분석  도움말".
+Shared leftnav: "통합 감시", "탐지 이력", "전 구간 감시" small "기획" pill, "물리 검증" small "기획" pill, "검증 규칙", "시연 관리". Below tree "분석 대상" > "ESS-01". Footer "설비 제어 없음". Do not duplicate fake connectivity of CAN/Modbus sensors. Only SSE link status can be green for actual command-MVP mock screens. All screenshots are mockups with illustrative data.
+
+Data contract: current MVP reads database EMS commands (not physicalCANcapture), evaluates5rules, saves multiple detectionresults percommand, broadcasts results viaSSE. Command fields id, issued_at, client_id, role(OPERATOR/MONITOR/MAINTENANCE/UNKNOWN), device_id, function_code(3/4read6/16write), register_address, command_value(rawinteger), ess_state(STOPPED/RUNNING/MAINTENANCE/FAULT), labeled_anomaly(evaluationonly), processed. Detectionfields id, command_log_id, rule_idR1–R5, severityCRITICAL/HIGH/MEDIUM, message, detected_at. No assignee, reviewstatus, memo, persistentincidententity, packetbytes, SOC telemetry, actualdevicecommandresponse, policywriteAPI, replaystart/pauseAPI exist in this request. Never pretendtheseexistintheMVP. Futurefeatures remain in plannedviews and visibly tagged "기획 미리보기 · 예시 데이터". No fake physicalconnection orconfirmedattack.
+Use rule name mapping R1미등록클라이언트,R2읽기전용쓰기,R3값범위초과,R4운전상태위반,R5쓰기폭주 as a proposed UI mapping. Values/rulethresholds/severityillustrations not regulatoryfacts.
+Shared sample database snapshot: loadedcommands120, processed100,pending20; distinctprocessedcommandswithdetections9, detectionevents14. Thus processed-no-rule-detection91 but avoidlabelingthesephysicallysafe. EventseveritycountsCRITICAL3,HIGH7,MEDIUM4sum14. Selected command1042 issued2026-10-31 14:31:50, clientMON-01, roleMONITOR, deviceESS-01, FC6쓰기, register120, rawvalue150, essstateRUNNING, processedtrue. It has TWO results event8021 R2 HIGH14:32:13 "읽기 전용 역할에서 쓰기 명령 발생" and8022 R3 MEDIUM14:32:13 "설정된 레지스터 값 범위 초과". Event8023 R1 CRITICAL14:32:14 referencesDIFFERENTcommand1043 andclientEXT-09. Showcount9vs14 correctly ifused. CurrentfooterlatestSSE14:32:14.
+Evaluationlabel is hidden from operationalviews; processedfalsemeans평가대기 notnormal; processedtruewithoutdetectionmeans규칙미탐지. Severitycomesfromevent, notfixed rulemapping.
+Do not add inappropriate implementationdetails to ordinaryuserflows. Distinguish implementedMVP vsplannedusing smallcontextlabels, notlarge apologybanners. No explanatoryoutsidefooter.
+SCREEN2 selected탐지이력. Two-paneproductionworkbench. Topfiltersdate2026-10-31 deviceESS-01 severity전체 rule전체 clientsearch and조회. Workspace title"탐지 이력".
+LEFT listabout45% eventtablecolumns시각/이벤트/명령/규칙/위험도 show8023,8022,8021consistent. Select8021. Toggle"이벤트별"active vs"명령별" available; indicates notone rowpercommandbydefault.
+RIGHT inspector title "이벤트 #8021" badgeHIGH and compact "명령 #1042 · 연결 탐지2건". Eventdata section "탐지 시각2026-10-31 14:32:13", "규칙R2 · 읽기전용쓰기", "읽기 전용 역할에서 쓰기 명령 발생".
+Originalcommandfacts inbalancedtwo-colgrid:
+발생시각2026-10-31 14:31:50; 클라이언트MON-01; 역할MONITOR; 대상ESS-01; 기능6·쓰기; 레지스터주소120; 명령값150; 값표현원시정수; 명령당시설비상태RUNNING; 처리완료.
+Do notlabel150asSOC%,kWorA. State is recordedcommandtime,notcurrentplantstate.
+Below "같은 명령의 탐지 결과" tabletwo rows8021 R2 HIGH and8022 R3 MEDIUM. Small "명령1건 / 탐지2건". No correlationincidentIDorassignee.
+Bottomleft optionally rawcommandkey/value panel onlyknownfields id1042 issued_at client_idroledevice_idfunction_code register_addresscommand_valueess_stateprocessed. DO NOT displaylabeled_anomalyhere. No packetbytesorregistermeaningmadeup. Button "원본 명령 보기". 
+Smallmetadata"처리 완료는 정상 판정을 의미하지 않습니다." understated. Footer lastSSE14:32:14. No savememo oracknowledgebuttonswithoutbackendfields. Screenvisuallyfeelsoperatorinvestigationtool.
+
+
+SCREEN 3: 전 구간 감시
+Use case: ui-mockup. ONE polished WHITE native Windows PC application screenshot, landscape 1800x1125. The attached screenshot is a style/layout reference only. Keep modern desktop chrome, titlebar/menu/document tabs/slim toolbar/fixedleftsidebar/data panels/table dock/statusbar. NOT webpage, no browser URL, not marketing cards, no dated metallic UI. Crisp Korean, white surfaces #FFFFFF, lightgray #F5F6F8, darkink text, fine borders and restrainedblue selected accents. Clear simple lineicons, aligned numerical tables, minimal rounding. App title "ESS Guard", small "시연 모드" badge, native minimize/maximize/close. Menu "파일  보기  분석  도움말".
+Shared leftnav: "통합 감시", "탐지 이력", "전 구간 감시" small "기획" pill, "물리 검증" small "기획" pill, "검증 규칙", "시연 관리". Below tree "분석 대상" > "ESS-01". Footer "설비 제어 없음". Do not duplicate fake connectivity of CAN/Modbus sensors. Only SSE link status can be green for actual command-MVP mock screens. All screenshots are mockups with illustrative data.
+
+Data contract: current MVP reads database EMS commands (not physicalCANcapture), evaluates5rules, saves multiple detectionresults percommand, broadcasts results viaSSE. Command fields id, issued_at, client_id, role(OPERATOR/MONITOR/MAINTENANCE/UNKNOWN), device_id, function_code(3/4read6/16write), register_address, command_value(rawinteger), ess_state(STOPPED/RUNNING/MAINTENANCE/FAULT), labeled_anomaly(evaluationonly), processed. Detectionfields id, command_log_id, rule_idR1–R5, severityCRITICAL/HIGH/MEDIUM, message, detected_at. No assignee, reviewstatus, memo, persistentincidententity, packetbytes, SOC telemetry, actualdevicecommandresponse, policywriteAPI, replaystart/pauseAPI exist in this request. Never pretendtheseexistintheMVP. Futurefeatures remain in plannedviews and visibly tagged "기획 미리보기 · 예시 데이터". No fake physicalconnection orconfirmedattack.
+Use rule name mapping R1미등록클라이언트,R2읽기전용쓰기,R3값범위초과,R4운전상태위반,R5쓰기폭주 as a proposed UI mapping. Values/rulethresholds/severityillustrations not regulatoryfacts.
+Shared sample database snapshot: loadedcommands120, processed100,pending20; distinctprocessedcommandswithdetections9, detectionevents14. Thus processed-no-rule-detection91 but avoidlabelingthesephysicallysafe. EventseveritycountsCRITICAL3,HIGH7,MEDIUM4sum14. Selected command1042 issued2026-10-31 14:31:50, clientMON-01, roleMONITOR, deviceESS-01, FC6쓰기, register120, rawvalue150, essstateRUNNING, processedtrue. It has TWO results event8021 R2 HIGH14:32:13 "읽기 전용 역할에서 쓰기 명령 발생" and8022 R3 MEDIUM14:32:13 "설정된 레지스터 값 범위 초과". Event8023 R1 CRITICAL14:32:14 referencesDIFFERENTcommand1043 andclientEXT-09. Showcount9vs14 correctly ifused. CurrentfooterlatestSSE14:32:14.
+Evaluationlabel is hidden from operationalviews; processedfalsemeans평가대기 notnormal; processedtruewithoutdetectionmeans규칙미탐지. Severitycomesfromevent, notfixed rulemapping.
+Do not add inappropriate implementationdetails to ordinaryuserflows. Distinguish implementedMVP vsplannedusing smallcontextlabels, notlarge apologybanners. No explanatoryoutsidefooter.
+SCREEN3 select전구간감시 기획. Title "전 구간 감시". Persistent obvious but tastefulbadge "기획 미리보기 · 예시 데이터" and caption "물리 계측 API 미연동". This is the future planned full architecture, not liveMVP. NEVER green connectionstatus.
+Top complete horizontalnetwork path with5nodes배터리모듈,BMS,ESS EMS,계통EMS,타관제센터 and4edgesCAN,Modbus TCP,DNP3/IEC104,ICCP. Fourobservationmarkers andsampleSOC values CAN98.0%, Modbus70.0%, IEC10470.0%, ICCP70.0. DNP3isalternativeinlabel, notfifthsample. Amberhighlight comparisonCAN–Modbus,label"불일치 관측 구간(예시)", notconfirmedattackerlocation.
+Middletable "관측 지점별 비교 · 예시" columns관측구간/항목/값/단위/기준시각/비교결과. RowsCAN SOC98,ModbusSOC70,IEC104SOC70,ICCPSOC70 allsameillustrativetime14:32:10. CompareCANvsModbus불일치; adjacentdownstream일치. Nofakeactualconnectiondots.
+Middlelowerleft cleanfuturetimeplot fourlegendseriesCAN98andthree70aftertime14:32:10; useoverlappinggroupedlabel"Modbus·IEC104·ICCP70" insteadmakingfakevaluesdifferent. Label예시추세.
+Right "교차 검증 · 연계 설계" matrix "명령 규칙 / 구간 일관성 / 배터리 물리 검증" rows "별도 탐지 결과 연계 예정", "불일치 예시", "SOC 변화량 불일치 예시". Overall "상관관계 검토 필요". Caption "동시 이상만으로 공격을 확정하지 않음". Noseverityrisk100orbackendincidentexistence.
+Bottom tabs "구간 비교", "프로토콜 이벤트", "연관 근거", with compactfutureprotocoldetectioncoverage CAN/Modbus/DNP3/IEC104/ICCP and label "관측 지점·시간·식별자 연계 필요". Notdetailedunknownpayload. Footer "기획 화면 · 예시 값 · 실시간 계측 미연동". Clearly plannedbutfullylaidoutnotblankplaceholder.
+
+
+SCREEN 4: 물리 검증
+Use case: ui-mockup. ONE polished WHITE native Windows PC application screenshot, landscape 1800x1125. The attached screenshot is a style/layout reference only. Keep modern desktop chrome, titlebar/menu/document tabs/slim toolbar/fixedleftsidebar/data panels/table dock/statusbar. NOT webpage, no browser URL, not marketing cards, no dated metallic UI. Crisp Korean, white surfaces #FFFFFF, lightgray #F5F6F8, darkink text, fine borders and restrainedblue selected accents. Clear simple lineicons, aligned numerical tables, minimal rounding. App title "ESS Guard", small "시연 모드" badge, native minimize/maximize/close. Menu "파일  보기  분석  도움말".
+Shared leftnav: "통합 감시", "탐지 이력", "전 구간 감시" small "기획" pill, "물리 검증" small "기획" pill, "검증 규칙", "시연 관리". Below tree "분석 대상" > "ESS-01". Footer "설비 제어 없음". Do not duplicate fake connectivity of CAN/Modbus sensors. Only SSE link status can be green for actual command-MVP mock screens. All screenshots are mockups with illustrative data.
+
+Data contract: current MVP reads database EMS commands (not physicalCANcapture), evaluates5rules, saves multiple detectionresults percommand, broadcasts results viaSSE. Command fields id, issued_at, client_id, role(OPERATOR/MONITOR/MAINTENANCE/UNKNOWN), device_id, function_code(3/4read6/16write), register_address, command_value(rawinteger), ess_state(STOPPED/RUNNING/MAINTENANCE/FAULT), labeled_anomaly(evaluationonly), processed. Detectionfields id, command_log_id, rule_idR1–R5, severityCRITICAL/HIGH/MEDIUM, message, detected_at. No assignee, reviewstatus, memo, persistentincidententity, packetbytes, SOC telemetry, actualdevicecommandresponse, policywriteAPI, replaystart/pauseAPI exist in this request. Never pretendtheseexistintheMVP. Futurefeatures remain in plannedviews and visibly tagged "기획 미리보기 · 예시 데이터". No fake physicalconnection orconfirmedattack.
+Use rule name mapping R1미등록클라이언트,R2읽기전용쓰기,R3값범위초과,R4운전상태위반,R5쓰기폭주 as a proposed UI mapping. Values/rulethresholds/severityillustrations not regulatoryfacts.
+Shared sample database snapshot: loadedcommands120, processed100,pending20; distinctprocessedcommandswithdetections9, detectionevents14. Thus processed-no-rule-detection91 but avoidlabelingthesephysicallysafe. EventseveritycountsCRITICAL3,HIGH7,MEDIUM4sum14. Selected command1042 issued2026-10-31 14:31:50, clientMON-01, roleMONITOR, deviceESS-01, FC6쓰기, register120, rawvalue150, essstateRUNNING, processedtrue. It has TWO results event8021 R2 HIGH14:32:13 "읽기 전용 역할에서 쓰기 명령 발생" and8022 R3 MEDIUM14:32:13 "설정된 레지스터 값 범위 초과". Event8023 R1 CRITICAL14:32:14 referencesDIFFERENTcommand1043 andclientEXT-09. Showcount9vs14 correctly ifused. CurrentfooterlatestSSE14:32:14.
+Evaluationlabel is hidden from operationalviews; processedfalsemeans평가대기 notnormal; processedtruewithoutdetectionmeans규칙미탐지. Severitycomesfromevent, notfixed rulemapping.
+Do not add inappropriate implementationdetails to ordinaryuserflows. Distinguish implementedMVP vsplannedusing smallcontextlabels, notlarge apologybanners. No explanatoryoutsidefooter.
+SCREEN4 select물리검증 기획. Title "배터리 물리 검증", persistent "기획 미리보기 · 예시 데이터", "계측 API 미연동". Toprule tabs "SOC·전류"active / "온도·발열" / "명령·응답" / "셀·팩 전압". These preserveallS1–S4plannedviewswithoutpretendingbackendfields.
+SelectedS1illustration window2026-10-31 14:32:08–14:32:13. Upperflatreadings CAN SOC98.0%, ModbusSOC70.0%, 전류0.0A. Threecalculatedresultssmaller "보고SOC변화−28.0%p", "전류적분예상변화0.0%p", "잔차28.0%p". Show "예시 판정: 관계식 불일치".
+Centerleft60% stackedplots: SOCchange y0,-10,-20,-30 reportedpurple0until14:32:10verticaldrop−28; modeldashedteal0flat. Lowercurrent y−1,0,1 line0. Bothwindow08to13. LabeltheseasCHANGESnotabsoluteSOC.
+Right40% "검증 근거" modelQ100Ah(예시), meanI0A, duration5sec, chargingpositive; formula "예상 변화 = 100 × ∫I dt / (3600 × Q)"; "잔차 = |보고 변화 − 예상 변화|". Smallnote "계산값은 실제 SOC의 정답이 아닙니다".
+Below plannedrulematrix columns검증항목/필요입력/검토사항:
+SOC적분 /전류·SOC·용량 /초기조건·허용오차
+온도·발열 /전류·온도·냉각조건 /조건부검증
+명령·응답 /충방전요청·응답·전류 /명령수락여부구분
+셀·팩전압 /셀전압·독립팩전압 /독립관측필요
+변화율 /SOC·온도시계열 /시각·변화율기준.
+NofakeactualtemperaturevaluecurrentERDdoesnotprovide. Data freshnessbadgesmustnotnormalgreenforplanneddata.
+Concisenote "일정한 오프셋은 변화량 검사만으로 놓칠 수 있어 구간 비교와 함께 검토". Footer "기획 화면 · 예시 값 · 실제 물리 검증 미구현".
+
+
+SCREEN 5: 검증 규칙
+Use case: ui-mockup. ONE polished WHITE native Windows PC application screenshot, landscape 1800x1125. The attached screenshot is a style/layout reference only. Keep modern desktop chrome, titlebar/menu/document tabs/slim toolbar/fixedleftsidebar/data panels/table dock/statusbar. NOT webpage, no browser URL, not marketing cards, no dated metallic UI. Crisp Korean, white surfaces #FFFFFF, lightgray #F5F6F8, darkink text, fine borders and restrainedblue selected accents. Clear simple lineicons, aligned numerical tables, minimal rounding. App title "ESS Guard", small "시연 모드" badge, native minimize/maximize/close. Menu "파일  보기  분석  도움말".
+Shared leftnav: "통합 감시", "탐지 이력", "전 구간 감시" small "기획" pill, "물리 검증" small "기획" pill, "검증 규칙", "시연 관리". Below tree "분석 대상" > "ESS-01". Footer "설비 제어 없음". Do not duplicate fake connectivity of CAN/Modbus sensors. Only SSE link status can be green for actual command-MVP mock screens. All screenshots are mockups with illustrative data.
+
+Data contract: current MVP reads database EMS commands (not physicalCANcapture), evaluates5rules, saves multiple detectionresults percommand, broadcasts results viaSSE. Command fields id, issued_at, client_id, role(OPERATOR/MONITOR/MAINTENANCE/UNKNOWN), device_id, function_code(3/4read6/16write), register_address, command_value(rawinteger), ess_state(STOPPED/RUNNING/MAINTENANCE/FAULT), labeled_anomaly(evaluationonly), processed. Detectionfields id, command_log_id, rule_idR1–R5, severityCRITICAL/HIGH/MEDIUM, message, detected_at. No assignee, reviewstatus, memo, persistentincidententity, packetbytes, SOC telemetry, actualdevicecommandresponse, policywriteAPI, replaystart/pauseAPI exist in this request. Never pretendtheseexistintheMVP. Futurefeatures remain in plannedviews and visibly tagged "기획 미리보기 · 예시 데이터". No fake physicalconnection orconfirmedattack.
+Use rule name mapping R1미등록클라이언트,R2읽기전용쓰기,R3값범위초과,R4운전상태위반,R5쓰기폭주 as a proposed UI mapping. Values/rulethresholds/severityillustrations not regulatoryfacts.
+Shared sample database snapshot: loadedcommands120, processed100,pending20; distinctprocessedcommandswithdetections9, detectionevents14. Thus processed-no-rule-detection91 but avoidlabelingthesephysicallysafe. EventseveritycountsCRITICAL3,HIGH7,MEDIUM4sum14. Selected command1042 issued2026-10-31 14:31:50, clientMON-01, roleMONITOR, deviceESS-01, FC6쓰기, register120, rawvalue150, essstateRUNNING, processedtrue. It has TWO results event8021 R2 HIGH14:32:13 "읽기 전용 역할에서 쓰기 명령 발생" and8022 R3 MEDIUM14:32:13 "설정된 레지스터 값 범위 초과". Event8023 R1 CRITICAL14:32:14 referencesDIFFERENTcommand1043 andclientEXT-09. Showcount9vs14 correctly ifused. CurrentfooterlatestSSE14:32:14.
+Evaluationlabel is hidden from operationalviews; processedfalsemeans평가대기 notnormal; processedtruewithoutdetectionmeans규칙미탐지. Severitycomesfromevent, notfixed rulemapping.
+Do not add inappropriate implementationdetails to ordinaryuserflows. Distinguish implementedMVP vsplannedusing smallcontextlabels, notlarge apologybanners. No explanatoryoutsidefooter.
+SCREEN5 select검증규칙. Title "명령 탐지 규칙", small"MVP · 조회"badge. PolicyeditingnotimplementedsoNOTactiveSavebutton. No inventedfixedthresholds.
+Mainfive-rowruletable columns규칙/탐지내용/사용데이터/상세:
+R1 미등록클라이언트 client_id·role 상세보기
+R2 읽기전용쓰기 role·function_code 상세보기
+R3 값범위초과 register_address·command_value 상세보기
+R4 운전상태위반 ess_state·function_code·register_address 상세보기
+R5 쓰기폭주 client_id·issued_at·function_code 상세보기.
+Subtitle"규칙명·번호 매핑은 코드 확정 후 대조". Countsormappingstatusnotfake.
+Belowleft selectedR2detail: "MONITOR 역할의 쓰기 명령 검사"; allowedfunctions3/4읽기,6/16쓰기; example MONITOR+FC6→탐지. Caption"위험도는 탐지 이벤트 값을 사용". No allR2alwaysHIGHfixedrulemap.
+Right "정책 확인 필요" showtext "레지스터별 허용 범위", "상태별 허용 명령", "1분 쓰기 횟수 기준" withvalue"미확정". SpecificR5window1분docdefinedbutthresholdnot. Show version fields notexistsdon'tinventpersistedversion.
+Bottom separatefuturesection "확장 검증 설정" small기획badge withsubtabs"물리검증기준 / 수집·매핑 / 상관분석". Disabledlightgrayfields forpolicy/window/model andnote"추가 API 및 저장 구조 필요". This retainsplannedfutureconfigurationwithoutfalsefunctionalSave. Button "편집" visiblydisabled with"기획". Noeditableactivevalues.
+Footer "현재 MVP: 규칙 기반 조회 · 정책 변경 기능은 기획 범위". Professional settingsnotwebpage.
+
+
+SCREEN 6: 시연 관리
+Use case: ui-mockup. ONE polished WHITE native Windows PC application screenshot, landscape 1800x1125. The attached screenshot is a style/layout reference only. Keep modern desktop chrome, titlebar/menu/document tabs/slim toolbar/fixedleftsidebar/data panels/table dock/statusbar. NOT webpage, no browser URL, not marketing cards, no dated metallic UI. Crisp Korean, white surfaces #FFFFFF, lightgray #F5F6F8, darkink text, fine borders and restrainedblue selected accents. Clear simple lineicons, aligned numerical tables, minimal rounding. App title "ESS Guard", small "시연 모드" badge, native minimize/maximize/close. Menu "파일  보기  분석  도움말".
+Shared leftnav: "통합 감시", "탐지 이력", "전 구간 감시" small "기획" pill, "물리 검증" small "기획" pill, "검증 규칙", "시연 관리". Below tree "분석 대상" > "ESS-01". Footer "설비 제어 없음". Do not duplicate fake connectivity of CAN/Modbus sensors. Only SSE link status can be green for actual command-MVP mock screens. All screenshots are mockups with illustrative data.
+
+Data contract: current MVP reads database EMS commands (not physicalCANcapture), evaluates5rules, saves multiple detectionresults percommand, broadcasts results viaSSE. Command fields id, issued_at, client_id, role(OPERATOR/MONITOR/MAINTENANCE/UNKNOWN), device_id, function_code(3/4read6/16write), register_address, command_value(rawinteger), ess_state(STOPPED/RUNNING/MAINTENANCE/FAULT), labeled_anomaly(evaluationonly), processed. Detectionfields id, command_log_id, rule_idR1–R5, severityCRITICAL/HIGH/MEDIUM, message, detected_at. No assignee, reviewstatus, memo, persistentincidententity, packetbytes, SOC telemetry, actualdevicecommandresponse, policywriteAPI, replaystart/pauseAPI exist in this request. Never pretendtheseexistintheMVP. Futurefeatures remain in plannedviews and visibly tagged "기획 미리보기 · 예시 데이터". No fake physicalconnection orconfirmedattack.
+Use rule name mapping R1미등록클라이언트,R2읽기전용쓰기,R3값범위초과,R4운전상태위반,R5쓰기폭주 as a proposed UI mapping. Values/rulethresholds/severityillustrations not regulatoryfacts.
+Shared sample database snapshot: loadedcommands120, processed100,pending20; distinctprocessedcommandswithdetections9, detectionevents14. Thus processed-no-rule-detection91 but avoidlabelingthesephysicallysafe. EventseveritycountsCRITICAL3,HIGH7,MEDIUM4sum14. Selected command1042 issued2026-10-31 14:31:50, clientMON-01, roleMONITOR, deviceESS-01, FC6쓰기, register120, rawvalue150, essstateRUNNING, processedtrue. It has TWO results event8021 R2 HIGH14:32:13 "읽기 전용 역할에서 쓰기 명령 발생" and8022 R3 MEDIUM14:32:13 "설정된 레지스터 값 범위 초과". Event8023 R1 CRITICAL14:32:14 referencesDIFFERENTcommand1043 andclientEXT-09. Showcount9vs14 correctly ifused. CurrentfooterlatestSSE14:32:14.
+Evaluationlabel is hidden from operationalviews; processedfalsemeans평가대기 notnormal; processedtruewithoutdetectionmeans규칙미탐지. Severitycomesfromevent, notfixed rulemapping.
+Do not add inappropriate implementationdetails to ordinaryuserflows. Distinguish implementedMVP vsplannedusing smallcontextlabels, notlarge apologybanners. No explanatoryoutsidefooter.
+SCREEN6 select시연관리. Title "명령 재생 관리", small"시연 DB" badge. Context"등록된 명령을 ID 순서로 1초마다 평가". Topprogressbar label"처리100 /120" showing83.3%length, "대기20". Counts"탐지 명령9 / 탐지 이벤트14". Do NOT show replaystart,stop,speedcontrollers asworking: requestonlyprovidesresetAPI.
+Centerlefttable "명령 처리 목록" columns명령ID/클라이언트/기능/처리상태/탐지수. cmd1042MON-01FC6완료2;1043EXT-09FC6완료1;1101OP-01FC3대기—. Below smallnote"대기는 미평가 상태이며 정상으로 집계하지 않음".
+Right panel "실시간 전달" connectedSSE label "알림 스트림 연결", lastmessage14:32:14. Schematictext"명령 평가 → 탐지 결과 저장 → 화면 알림". Normalcommandsproduce no detectionnotification; never claimoneeventpercommand.
+Bottomleft evaluationpanel checkbox unchecked "평가용 정답 라벨 보기". Text "정답 라벨은 탐지 규칙의 입력과 분리"; optional"정탐·오탐 평가는 처리 완료 명령 기준" nofakeaccuracy.
+Bottomright destructivebutreversibletestresetpanel titled"시연 초기화" orangeoutlinebutton"탐지 결과 초기화". Caption "전체 탐지 이력을 삭제하고, 모든 명령을 처리 대기로 되돌립니다." Small"다른 연결 화면에도 초기화가 전달됩니다." Include a compact open confirmation dialog overlay onlyrightlower area titled"시연을 초기화할까요?" bullets"탐지 결과14건삭제 / 명령120건처리상태초기화", buttons취소 and초기화. This ismockofconfirmationnotactualaction. No endpointURLsneededonproductUI.
+Footer"실제 설비 제어 없음 · 시연 데이터". Preserve sophisticatedappnotdangerconsole.
+
+
+REVISIONS
+SCREEN 2
+Precisely edit this UI screenshot. Preserve entire white desktop layout and all right-side command/event detail unchanged. FIX the left event table: it must show ONLY THREE rows, #8023 command#1043 R1 CRITICAL14:32:14, #8022 command#1042 R3 MEDIUM14:32:13, selected#8021 command#1042 R2 HIGH14:32:13. REMOVE all the additional fabricated rows below these three, leaving clean blank table body. Add small pagination footer "표시 3건 / 전체 14건 · 탐지 명령 9건" and previous/next arrows. Do NOT invent extra sample commands, dates or event rows. Keep top total14events9commands consistent with paginatedsubset. Keep noackbuttons no reviewstatusand originalselectedcommand1042allfields. This is a precise data consistency correction only. Do not redrawotherpanels.
+
+SCREEN 3
+Precisely correct this planned full-path monitoring UI preserving white layout, navigation, full five-node architecture and planning labels. The source chart and topology currently confuse device state with captured traffic. Make these exact corrections:
+1. Top five device nodes retain only icon and name "배터리 모듈", "BMS", "ESS EMS", "계통 EMS", "타 관제센터". REMOVE all SOC numeric tiles from inside those five boxes. Keep CAN/ModbusTCP/DNP3·IEC104/ICCP edge labels. Caption over highlighted comparison reads "CAN–Modbus 관측 편차 (예시)" notclaimconfirmedattackerpoint.
+2. Observation table has exactly4rows, clear source labels:
+"CAN · 배터리→BMS" SOC98.0 % time2026-10-31 14:32:10 result"Modbus와 불일치";
+"Modbus · BMS→ESS EMS" SOC70.0 % same time result"IEC104와 일치";
+"IEC104 · ESS EMS→계통" SOC70.0 % same time result"ICCP와 일치";
+"ICCP · 계통→타 센터" SOC70.0 % same time result"비교 끝점".
+No pretendnextobservationafterICCP.
+3. Example plot x-axis14:31:30 through14:33:10 asis. CANblueat98throughout. Other three combinedorangecurve ALSO at98 before14:32:10, then VERTICALSTEP to70 exactlyat14:32:10, thenflat70. Match y-position70slightlybelow75tick,98below100. Title "예시 추세", dataonlyhypotheticalnotlive.
+4. Replace confusing circle matrix onright with simple3-row table columns"검증 / 표시 내용": "명령 규칙 | 탐지 결과 연계 예정"; "구간 일관성 | CAN–Modbus 불일치 예시"; "물리 검증 | SOC 변화량 불일치 예시". Keep "상관관계 검토 필요" and "동시 이상만으로 공격을 확정하지 않음". Keepclear기획미리보기·예시데이터 andphysicalAPIunlinked. No realSSEstatusclaimonplannedgraph. Change onlytheseareas.
+
+SCREEN 4
+Edit this white physical-validation planned UI with ONLY these precise corrections, preserving all layout, numbers, inputtable and rulematrix.
+1. The purple upper-plot legend MUST say exactly "보고 SOC 변화 (Modbus)", not "(CAN)". CANremains98andisnotthespoofedstream. PurpleModbusreportedchange0until14:32:10then−28.
+2. The purple plot must be a precise stepped line: horizontal0 up to14:32:10, VERTICAL drop atthatx to−28, thenhorizontal−28 through14:32:13. No diagonal decline. Predictiondashedteal0unchanged, lowercurrent0unchanged.
+3. Remove the gratuitous English "(CHANGES)" from plot title: use "SOC 변화량·전류 추세".
+4. Replace green live status bottomleft with a gray dot and "기획 미리보기 · 예시 데이터". This physicalviewisnotrealtelemetryconnected. Keep footer actualphysicalverificationnotimplemented and globalappstyle. These fixes only, no newdata.
+
+SCREEN 5
+Edit this white rule settings screenshot preserving layout and all five rules. Make small product-facing text fixes:
+1. Subtitle under "명령 탐지 규칙": replace implementation commentary aboutcode with "R1–R5 규칙 기준으로 명령을 검사합니다."
+2. In R4 description replace "현재 운전 상태에서 허용되지 않는 명령 탐지" with "명령 발생 당시 설비 상태의 허용 명령 검사". This isstoredess_state,notliveplantstatus.
+3. Table "사용 데이터" usehuman-readable labels ratherthanrawfieldnames: R1"클라이언트·역할";R2"역할·기능 코드";R3"레지스터 주소·명령 값";R4"설비 상태·기능 코드·주소";R5"클라이언트·발생 시각·기능 코드". InR2detail use "역할·기능 코드" andexample "MONITOR + 기능 코드 6 → 탐지". Keepconceptsame.
+4. In bottomsection active "물리 검증 기준" tab, thefourdisabledsettings shouldbe "배터리 용량", "검증 시간 구간", "허용 오차", "연속 초과 조건", allvalue "미설정". Do NOT showregisterpolicyorwritingburstunderphysicaltab. Other tabsremain수집·매핑 and상관분석. Replace developer note "추가 API 및 저장 구조 필요" with "설정 편집 준비 중". Keepdisabled편집buttonand기획badge. NoactiveSavebutton.
+Everythingelseunchanged. Keep pendingpoliciesnotmadeupthresholds.
