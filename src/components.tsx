@@ -13,14 +13,15 @@ export function Badge({ severity }: { severity: Severity }) {
 export function Empty({ children = '조건에 맞는 데이터가 없습니다.' }: { children?: ReactNode }) {
   return <div className="empty"><FileSearch size={30} strokeWidth={1.3} /><strong>{children}</strong><span>조회 조건을 변경하거나 새로고침해 주세요.</span></div>;
 }
-export function FiltersBar({ value, onChange, eventFilters = false, refresh, busy, devices = [] }: { devices?: string[]; value: Filters; onChange: (filters: Filters) => void; eventFilters?: boolean; refresh: () => void; busy: boolean }) {
+export function FiltersBar({ value, onChange, eventFilters = false, refresh, busy, devices = [], lockedDevice }: { lockedDevice?: string; devices?: string[]; value: Filters; onChange: (filters: Filters) => void; eventFilters?: boolean; refresh: () => void; busy: boolean }) {
   const set = (key: keyof Filters, next: string) => onChange({ ...value, [key]: next });
   return <div className="filters">
     <label>탐지 날짜 (비우면 전체)<input aria-label="표시 날짜" type="date" value={value.date} onChange={e => set('date', e.target.value)} /></label>
-    <label>대상 설비<select value={value.device} onChange={e => set('device', e.target.value)}><option value="">전체 설비</option>{[...new Set([...devices, value.device].filter(Boolean))].map(device => <option key={device}>{device}</option>)}</select></label>
-    {eventFilters && <><label>위험도<select value={value.severity} onChange={e => set('severity', e.target.value)}><option value="">전체 위험도</option>{['CRITICAL', 'HIGH', 'MEDIUM'].map(s => <option key={s}>{s}</option>)}</select></label>
-      <label>규칙<select value={value.rule} onChange={e => set('rule', e.target.value)}><option value="">전체 규칙</option>{rules.map(r => <option key={r.id} value={r.id}>{r.id} · {r.name}</option>)}</select></label>
+    <label>대상 설비<select aria-label="대상 설비" value={lockedDevice??value.device} disabled={Boolean(lockedDevice)} onChange={e => set('device', e.target.value)}><option value="">전체 설비</option>{[...new Set([...devices, value.device, lockedDevice].filter(Boolean))].map(device => <option key={device}>{device}</option>)}</select></label>
+    {eventFilters && <><label>위험도<select aria-label="위험도" value={value.severity} onChange={e => set('severity', e.target.value)}><option value="">전체 위험도</option>{['CRITICAL', 'HIGH', 'MEDIUM'].map(s => <option key={s}>{s}</option>)}</select></label>
+      <label>규칙<select aria-label="규칙" value={value.rule} onChange={e => set('rule', e.target.value)}><option value="">전체 규칙</option>{rules.map(r => <option key={r.id} value={r.id}>{r.id} · {r.name}</option>)}</select></label>
       <label className="search-label">클라이언트<div className="search-field"><Search size={15} /><input placeholder="클라이언트 ID 검색" value={value.client} onChange={e => set('client', e.target.value)} /></div></label></>}
+    <button className="button" onClick={()=>onChange({date:'',device:lockedDevice??'',severity:'',rule:'',client:''})}>조건 초기화</button>
     <button className="button refresh-button" onClick={refresh} disabled={busy}><RotateCcw size={15} className={busy ? 'spin' : ''} />{busy ? '불러오는 중' : '새로고침'}</button>
   </div>;
 }

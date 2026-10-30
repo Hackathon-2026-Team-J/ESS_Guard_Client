@@ -1,0 +1,88 @@
+import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
+import { Activity, ArrowDownLeft, ArrowUpRight, Boxes, ChevronLeft, ChevronRight, Clock3, ShieldAlert } from 'lucide-react';
+import type { DetectionEvent, Snapshot } from './model.ts';
+import { eventKind, eventSourceLabel, relatedEvents, rules, selectEvents, defaultFilters } from './model.ts';
+import type { ServerStats } from './api.ts';
+import { Badge, Empty, Panel } from './components.tsx';
+import { detectionStatus, deviceForEvent, deviceIds, siteRoute, siteSnapshot } from './dashboard.ts';
+import station from './assets/control-center.webp';
+import type { LatestTelemetry, TelemetryState } from './telemetry.ts';
+import { validSoc } from './telemetry.ts';
+import type { SocSimulation } from './socSimulation.ts';
+
+const count = (value: number | undefined) => value === undefined ? '—' : value.toLocaleString();
+type Navigate = (route: string) => void;
+function Stat({label, value, unit, caption, icon}: {label:string; value:string; unit?:string; caption:string; icon?:ReactNode}) {
+  return <div className="d-stat"><span>{icon}{label}</span><div><b title={value}>{value}</b><small>{unit}</small></div><p title={caption}>{caption}</p></div>;
+}
+export function TelemetryChart({title, unit='kW', compact=false}: {title:string; unit?:string; compact?:boolean}) {
+  return <div className={'d-chart-unavailable '+(compact?'compact':'')} role="img" aria-label={title+' · 시계열 데이터 미제공'}>
+    <span className="d-axis-unit">{unit}</span><div className="d-chart-grid" aria-hidden="true"><i/><i/><i/></div>
+    <div className="d-chart-message"><Activity size={23} strokeWidth={1.4}/><strong>계측 데이터 미제공</strong><span>{title} 조회 연결 대기</span></div>
+    <div className="d-axis-bottom"><span>측정 시각</span><span>실시간 값 확인 불가</span></div>
+  </div>;
+}
+function EventCard({event, snapshot, onEvent}: {event:DetectionEvent; snapshot:Snapshot; onEvent:(id:number)=>void}) {
+  return <button className="d-event-card" onClick={()=>onEvent(event.id)} aria-label={'이벤트 '+event.id+' 상세'}><div><Badge severity={event.severity}/><time>{event.detectedAt.slice(11,19)}</time></div><b>{event.ruleId} · {event.message}</b><small>{deviceForEvent(event,snapshot)||'설비 미제공'} · {eventSourceLabel(event)}</small></button>;
+}
+function ReceivedTrend({events}: {events:DetectionEvent[]}) {
+  if (!events.length) return <Empty>수신 탐지 이력이 없습니다.</Empty>;
+  const end = Math.max(...events.map(event=>Date.parse(event.detectedAt)));
+  const bins=Array.from({length:12},(_,index)=>({at:end-(11-index)*300000,value:0}));
+  events.forEach(event=>{const i=Math.floor((Date.parse(event.detectedAt)-(end-3599999))/300000);if(i>=0&&i<12)bins[i].value++;});
+  const max=Math.max(1,...bins.map(bin=>bin.value));
+  const clock=(ms:number)=>new Intl.DateTimeFormat('ko-KR',{timeZone:'Asia/Seoul',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(ms));
+  return <div className="d-received-trend"><div className="d-trend-label"><span>수신 이벤트 · 5분 단위</span><span>최대 {max}건</span></div><div className="d-bars">{bins.map(bin=><div key={bin.at} title={clock(bin.at)+'까지 5분 · '+bin.value+'건'}><b>{bin.value||''}</b><i style={{height:(bin.value/max*100)+'%'}}/></div>)}</div><div className="d-axis-bottom"><span>{clock(end-3600000)}</span><span>{clock(end)} · 마지막 탐지 기준</span></div></div>;
+}
+function EssBattery({reading,simulated=false}: {reading?:Pick<LatestTelemetry,'soc'>;simulated?:boolean}) {
+  const valid=validSoc(reading?.soc);
+  return <div className="d-ess-charge"><div className={'d-battery '+(valid?'has-reading':'unknown')} role="meter" aria-label={simulated?'시뮬레이션 배터리 충전율':'배터리 충전율'} aria-valuemin={0} aria-valuemax={100} aria-valuenow={valid?reading!.soc:undefined} aria-valuetext={valid?reading!.soc+'%':reading?'SOC 범위 오류':'SOC 데이터 없음'}><div className="d-battery-track">{valid&&<div className="d-battery-fill" style={{width:reading!.soc+'%'}}/>}<div className="d-battery-cells"/></div></div><div className="d-soc-value"><small>{simulated?'가상 SOC':'SOC'}</small><strong title={reading?String(reading.soc)+'%':'측정값 없음'}>{reading?reading.soc.toLocaleString('en-US',{maximumFractionDigits:1}):'—'}<small>%</small></strong></div></div>;
+}
+export function FleetOverview({snapshot,stats,ready,navigate,onEvent,telemetry,simulatedSoc}: {snapshot:Snapshot; stats:ServerStats|null; ready:boolean; navigate:Navigate; onEvent:(id:number)=>void; telemetry:TelemetryState;simulatedSoc?:SocSimulation}) {
+  const [page,setPage]=useState(0),[trend,setTrend]=useState('power');
+  const ids=deviceIds(snapshot,telemetry.readings.map(reading=>reading.deviceId)),pages=Math.ceil(ids.length/6),actualPage=Math.min(page,pages-1),visible=ids.slice(actualPage*6,actualPage*6+6);
+  const measured=new Map(telemetry.readings.map(reading=>[reading.deviceId,reading]));
+  const measuredCount=measured.size;
+  const discharging=telemetry.readings.reduce((total,reading)=>total+Math.max(0,reading.actualKw),0);
+  const charging=telemetry.readings.reduce((total,reading)=>total+Math.max(0,-reading.actualKw),0);
+  const measurementCaption=(telemetry.error&&measuredCount?'이전 수신 · ':'')+'계측 수신 '+measuredCount+'/'+ids.length+'대 기준';
+  const events=selectEvents(snapshot,{...defaultFilters,date:''});
+  const detectedSites=new Set(events.map(event=>deviceForEvent(event,snapshot)).filter(Boolean));
+  return <div className="d-fleet">
+    <div className="d-fleet-title"><h1>ESS 통합 관제</h1><span>전체 설비 구성 {ids.length}대 · 연결 상태 확인 불가</span></div>
+    <div className="d-stats"><Stat label="구성된 ESS" value={count(ids.length)} unit="대" caption="화면 구성 + 수신 설비 · 가동 수 아님" icon={<Boxes size={15}/>}/><Stat label="수신 설비 방전 전력" value={measuredCount?count(discharging):'—'} unit="kW" caption={measurementCaption} icon={<ArrowUpRight size={15}/>}/><Stat label="수신 설비 충전 전력" value={measuredCount?count(charging):'—'} unit="kW" caption={measurementCaption} icon={<ArrowDownLeft size={15}/>}/><Stat label="탐지 이력이 있는 설비" value={ready?count(detectedSites.size):'—'} unit="대" caption={'전체 탐지 '+count(stats?.detectionCount)+'건 · 검토 필요'} icon={<ShieldAlert size={15}/>}/></div>
+    <div className="d-section-caption"><h2>전체 ESS 현황 <span>{String(ids.length).padStart(2,'0')}</span></h2><div><span className={simulatedSoc?'d-simulation-label':undefined} title={simulatedSoc?'실측 아님 · 최신 탐지 규칙을 반영한 가속 시연. 서버 재생 정지와 독립적으로 동작합니다.':undefined}>{simulatedSoc?'시뮬레이션 SOC · 탐지 반영':'미탐지는 정상 판정이 아닙니다'}</span>{pages>1&&<><button className="icon-button" disabled={!actualPage} aria-label="이전 설비" onClick={()=>setPage(actualPage-1)}><ChevronLeft size={16}/></button>{actualPage+1} / {pages}<button className="icon-button" disabled={actualPage+1===pages} aria-label="다음 설비" onClick={()=>setPage(actualPage+1)}><ChevronRight size={16}/></button></>}</div></div>
+    <div className="d-network">{visible.map((id,index)=>{const list=siteSnapshot(snapshot,id).events,status=detectionStatus(list,ready),reading=measured.get(id),simulated=simulatedSoc?.[id];const caption=simulated?`가속 시연 · ${simulated.label}`:reading?`${telemetry.error?'이전 수신':'측정'} ${reading.measuredAt.slice(0,10)} ${reading.measuredAt.slice(11,19)} KST`:telemetry.error|| (telemetry.updatedAt?'처리된 측정값 없음':'SOC 조회 중');return <button key={id} className={'d-ess-node tone-'+status.tone} style={{gridArea:(index%3+1)+' / '+(index<3?1:3)}} onClick={()=>navigate(siteRoute(id))} aria-label={id+' 상세 보기'}><div className="d-ess-heading"><b title={id}>{id}</b><span className={'d-status '+status.tone}>{status.label}</span></div><EssBattery reading={reading??simulated} simulated={Boolean(simulated)}/><div className="d-ess-metrics"><span title={reading?reading.actualKw+' kW':'측정값 없음'}>출력 <b>{reading?count(reading.actualKw):'—'}</b> kW</span><span>{ready?'수신 탐지 '+list.length+'건':'조회 대기'}</span></div><span className={'d-ess-caption '+(telemetry.error&&!simulated?'stale':'')} title={caption}>{caption}</span></button>;})}
+      <div className="d-station"><img src={station} alt="중앙 관제소 건물"/><h2>중앙 관제소</h2><p>ESS Guard · 통합 감시</p><div><span>구성 설비 <b>{ids.length}</b></span><span>전체 탐지 <b>{count(stats?.detectionCount)}</b></span></div></div>
+    </div>
+    <div className="d-home-bottom"><Panel title={trend==='power'?'최근 1시간 전력 추이':'수신 탐지 추이'} action={<div className="segmented"><button className={trend==='power'?'active':''} onClick={()=>setTrend('power')}>전력</button><button className={trend==='detections'?'active':''} onClick={()=>setTrend('detections')}>탐지</button></div>}>{trend==='power'?<TelemetryChart title="충·방전 전력" compact/>:<ReceivedTrend events={events}/>}</Panel><Panel title="우선 확인 알림" action={<button className="text-button" onClick={()=>navigate('detections')}>전체 경보 로그 <ChevronRight size={14}/></button>}><div className="d-alert-preview">{events.slice(0,2).map(event=><EventCard key={event.id} event={event} snapshot={snapshot} onEvent={onEvent}/>)}{!events.length&&<Empty>{ready?'수신 탐지 없음':'서버 데이터 조회 대기'}</Empty>}</div></Panel></div>
+  </div>;
+}
+export function DataPath() {
+  return <Panel title="데이터 경로 · SOC 관측값" subtitle="관측 지점별 계측 데이터 미제공" className="d-flow-panel"><div className="d-flow">{[['CAN','배터리 랙'],['CAN → Modbus','BMS'],['Modbus TCP','ESS EMS'],['DNP3 / IEC 104','계통 EMS'],['ICCP','타 관제센터']].map(([protocol,label],index)=><div className={'d-flow-node '+(index===3?'current':'')} key={label}><small>{protocol}</small><b>{label}</b><strong>—</strong><span>{index===3?'현재 관제 위치':'관측값 미제공'}</span></div>)}</div></Panel>;
+}
+export function SiteOverview({device,snapshot,ready,navigate,onEvent,onRule}: {device:string; snapshot:Snapshot; ready:boolean; navigate:Navigate; onEvent:(id:number)=>void; onRule:(id:string)=>void}) {
+  const events=selectEvents(siteSnapshot(snapshot,device),{...defaultFilters,date:''});
+  return <div className="d-site-overview"><DataPath/><div className="d-site-columns">
+    <Panel title="이 사이트 경보" action={<span className="muted">{ready?events.length:'—'}건</span>} className="d-site-alerts"><div className="d-site-alert-scroll">{events.slice(0,6).map(event=><EventCard key={event.id} event={event} snapshot={snapshot} onEvent={onEvent}/>)}{!events.length&&<Empty>{ready?'수신 탐지 없음':'조회 대기'}</Empty>}</div><button className="button primary" onClick={()=>navigate(siteRoute(device,'logs'))}>{device} 경보 로그 보기 <ChevronRight size={14}/></button></Panel>
+    <div className="d-site-charts"><Panel title="출력 · 계획 / 명령 / 실제"><TelemetryChart title="계획·명령·실제 출력"/></Panel><Panel title="SOC · 관측 지점별 추이"><TelemetryChart title="지점별 SOC" unit="%"/></Panel></div>
+    <div className="d-site-side"><Panel title="사이버 × 물리 검토"><div className="d-matrix"><span/><span>물리 정상</span><span>물리 이상</span><span>망 정상</span><div>정상 후보</div><div>물리 원인 검토</div><span>망 이상</span><div>망 원인 검토</div><div>상관관계 검토</div></div><p className="d-matrix-note">현재 판정 <b>확인 불가</b><br/>동시 이상만으로 공격을 확정하지 않습니다.</p></Panel><Panel title="룰 상태 · 수신 이력"><div className="d-rule-status">{rules.map(rule=><button key={rule.id} onClick={()=>onRule(rule.id)}><span>{rule.id} {rule.name}<small>{rule.id==='R4'?'500 kWh · 출력 기반 SOC 검증':'현재 규칙 안내 · 이력 버전 미제공'}</small></span><b>{ready?events.filter(event=>event.ruleId===rule.id).length:'—'}건</b></button>)}</div></Panel></div>
+  </div><div className="d-site-readings">{['운전 모드','실제 출력','배터리 SOC','정격 출력','통신 상태','계측 시각'].map(label=><div key={label}><span>{label}</span><b>확인 불가</b></div>)}</div></div>;
+}
+export function DetectionStats({stats,snapshot,ready}: {stats:ServerStats|null; snapshot:Snapshot; ready:boolean}) {
+  return <div className="d-stats d-log-stats"><Stat label="전체 탐지" value={count(stats?.detectionCount)} unit="건" caption="서버 전체 집계"/><Stat label="CRITICAL" value={count(stats?.severityCounts.CRITICAL)} caption="서버 전체 집계"/><Stat label="HIGH" value={count(stats?.severityCounts.HIGH)} caption="서버 전체 집계"/><Stat label="경보 발생 사이트" value={ready?count(new Set(snapshot.events.map(event=>deviceForEvent(event,snapshot)).filter(Boolean)).size):'—'} caption="최근 수신 범위"/><Stat label="MEDIUM" value={count(stats?.severityCounts.MEDIUM)} caption="서버 전체 집계"/></div>;
+}
+export function AlarmTable({events,snapshot,onEvent,onCommand}: {events:DetectionEvent[]; snapshot:Snapshot; onEvent:(id:number)=>void; onCommand:(id:number)=>void}) {
+  if(!events.length)return <Empty/>;
+  return <div className="table-scroll"><table className="d-alarm-table"><thead><tr><th>시각</th><th>심각도</th><th>사이트</th><th>경보</th><th>원인 데이터</th><th>판정</th><th>상태</th></tr></thead><tbody>{events.map(event=><tr key={event.id} className="clickable-row" onClick={()=>onEvent(event.id)}><td className="mono">{event.detectedAt.slice(11,19)}<small>{event.detectedAt.slice(0,10)}</small></td><td><Badge severity={event.severity}/></td><td>{deviceForEvent(event,snapshot)||'미제공'}</td><td><button className="d-alarm-link" aria-label={'이벤트 '+event.id+' 상세'} onClick={click=>{click.stopPropagation();onEvent(event.id);}}>{event.ruleId} · {eventKind(event)}</button><small>{event.message}</small></td><td>{event.commandLogId!==null?<button className="command-link" aria-label={'원본 명령 '+event.commandLogId+' 상세'} onClick={click=>{click.stopPropagation();onCommand(event.commandLogId!);}}>{eventSourceLabel(event)}</button>:eventSourceLabel(event)}</td><td className="d-review">검토 필요</td><td>탐지됨 <ChevronRight size={13}/></td></tr>)}</tbody></table></div>;
+}
+export function IncidentPage({event,snapshot,navigate,onEvent,onCommand,onBack}: {event?:DetectionEvent; snapshot:Snapshot; navigate:Navigate; onEvent:(id:number)=>void; onCommand:(id:number)=>void; onBack:()=>void}) {
+  const [step,setStep]=useState(0);
+  useEffect(()=>setStep(0),[event?.id]);
+  if(!event)return <Panel title="경보 상세"><Empty>수신 범위에서 이벤트를 찾을 수 없습니다.</Empty><div className="detail-body"><button className="button" onClick={onBack}>경보 로그로 돌아가기</button></div></Panel>;
+  const command=snapshot.commands.find(item=>item.id===event.commandLogId),device=deviceForEvent(event,snapshot);
+  const related=relatedEvents(event,snapshot.events).filter(item=>item.id!==event.id);
+  const steps=[['원인 식별',`${device||'설비 미제공'} · ${eventSourceLabel(event)}`],['규칙 탐지',event.ruleId+' · '+event.message],['제공 근거 확인',command?'원본 명령의 클라이언트, 기능 코드, 레지스터 주소와 원시 값을 확인합니다.':'원인 측정값 ID를 확인합니다. 원시 SOC·출력 시계열은 미제공입니다.'],['추가 정보 검토','규칙 버전, 실제 출력·SOC, 측정 시각은 이 응답에서 제공되지 않습니다.'],['검토 필요','탐지는 확인되었습니다. 제공된 정보만으로 공격 또는 정상으로 확정하지 않습니다.']];
+  return <div className="d-incident"><div className="d-breadcrumb"><button onClick={onBack}>‹ 경보 로그</button> / {device?<button onClick={()=>navigate(siteRoute(device))}>{device}</button>:'설비 미제공'} / EVT-{event.id}</div><div className="d-incident-grid"><section className="panel d-incident-evidence"><div className="d-incident-title"><div><Badge severity={event.severity}/><span>{event.ruleId} · {eventKind(event)}</span><h2>탐지 근거 검토</h2></div><div><button className="button" disabled title="상태 저장 미지원">오탐 처리</button><button className="button primary" disabled title="상태 저장 미지원">확인 완료</button></div></div><div className="d-facts">{[['사이트',device||'미제공'],['탐지 시각',event.detectedAt.slice(11,19)],['원인',eventSourceLabel(event)],['위험도',event.severity],['판정','검토 필요']].map(([label,value])=><div key={label}><span>{label}</span><b>{value}</b></div>)}</div><table className="d-evidence-table"><thead><tr><th>항목</th><th>수신 근거</th><th>제공 범위</th></tr></thead><tbody><tr><td>탐지 메시지</td><td>{event.message}</td><td>서버 원문 · #{event.id}</td></tr><tr><td>원인 데이터</td><td>{command?`${command.clientId??'클라이언트 미제공'} · FC ${command.functionCode??'—'} · 주소 ${command.registerAddress??'—'}`:eventSourceLabel(event)}</td><td>{command?<button className="button" onClick={()=>onCommand(command.id)}>원본 명령 보기</button>:'원시 시계열 미제공'}</td></tr><tr><td>실제 출력·SOC / 규칙 버전</td><td>이벤트에서 조회되지 않음</td><td>계측값·버전 추정 안 함</td></tr></tbody></table><p className="fineprint">탐지 시각 {event.detectedAt.slice(0,19).replace('T',' ')} KST · 확인·오탐 상태 저장과 공격 확정 판정은 미지원입니다.</p></section><Panel title={'연관 경보 · '+(device||'설비 미제공')} subtitle={'같은 원인 '+eventSourceLabel(event)+' · '+related.length+'건'} className="d-incident-related"><div>{related.length?related.map(item=><EventCard key={item.id} event={item} snapshot={snapshot} onEvent={onEvent}/>):<Empty>연관 탐지 없음</Empty>}</div><p className="panel-note">수신 범위 내 동일 원인 기준입니다.</p></Panel></div><div className="d-scenario-heading"><h2>시나리오 검토</h2><span><Clock3 size={13}/>근거 검토 단계 · 서버 재생 제어 아님</span></div><div className="d-scenario"><section className="panel d-step-copy"><small>STEP {step+1} / 5 · EVT-{event.id}</small><h2>{steps[step][0]}</h2><p>{steps[step][1]}</p><div><button className="button" disabled={!step} aria-label="이전 검토 단계" onClick={()=>setStep(step-1)}><ChevronLeft size={16}/></button><button className="button primary" onClick={()=>setStep(step===4?0:step+1)}>{step===4?'처음부터':'다음 단계'}<ChevronRight size={16}/></button></div></section><Panel title={(device||'설비')+' · 계획 / 명령 / 실제 출력'}><TelemetryChart title="해당 이벤트 구간의 출력"/></Panel></div><div className="d-step-timeline">{steps.map(([title],index)=><button key={title} aria-pressed={step===index} onClick={()=>setStep(index)}><small>STEP {index+1}</small><b>{title}</b></button>)}</div></div>;
+}

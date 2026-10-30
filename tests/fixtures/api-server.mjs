@@ -6,6 +6,7 @@ let running = false;
 let processed = 100;
 let nextId = 13;
 let failing = false;
+let measurements = [76,62,63.5,38,0,100].map((soc,index)=>({id:index+1,deviceId:'ESS-0'+(index+1),measuredAt:'2026-10-31T14:32:07',actualKw:[620,660,-49,-420,0,0][index],soc}));
 let rows = Array.from({length:9}, (_, index) => ({
   id:index+1, commandLogId:1042+index, telemetryId:null, ruleId:'R2', severity:'HIGH',
   message:'테스트 전용: 계획 -100kW 대비 명령 -130kW (편차 30.0%)', detectedAt:'2026-11-07T09:01:'+String(index).padStart(2,'0'),
@@ -39,10 +40,11 @@ const server=createServer((request,response)=>{
   }
   if(url.pathname==='/api/stats') return reply(response,200,{processedCount:processed,totalCount:230,detectionCount:rows.length,labeledAnomalyCount:30,severityCounts:rows.length ? {HIGH:rows.length} : {},ruleCounts:ruleCounts()});
   if(url.pathname==='/api/events') return reply(response,200,[...rows].sort((a,b)=>b.id-a.id).slice(0,Number(url.searchParams.get('limit') ?? 50)));
+  if(url.pathname==='/api/telemetry/latest') return reply(response,200,measurements);
   if(request.method==='POST'){
     if(url.pathname==='/api/replay/start') running=true;
     else if(url.pathname==='/api/replay/stop') running=false;
-    else if(url.pathname==='/api/replay/reset'){running=false;processed=0;rows=[];emit('reset','reset');}
+    else if(url.pathname==='/api/replay/reset'){running=false;processed=0;rows=[];measurements=[];emit('reset','reset');}
     else return reply(response,404,{});
     return reply(response,200,{running,processedCount:processed});
   }
